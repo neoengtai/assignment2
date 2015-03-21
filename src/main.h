@@ -1,0 +1,24 @@
+#define SAMPLING_TIME		3000	// milliseconds
+#define FLARE_INTENSITY		2000	// lux
+#define TIME_UNIT			250		// milliseconds
+
+#define INDICATOR_BASIC_ON() GPIO_SetValue(0, 1<<26)	//Blue led
+#define INDICATOR_BASIC_OFF() GPIO_ClearValue(0, 1<<26)
+
+#define INDICATOR_RESTRICTED_ON() GPIO_SetValue(2, 1)		//Red led
+#define INDICATOR_RESTRICTED_OFF() GPIO_ClearValue(0, 1)
+
+#define INDICATOR_SAFE_ON() //TODO: led lights
+#define INDICATOR_SAFE_OFF()
+
+//#define BASIC_MODE()			\
+//	INDICATOR_BASIC_ON();		\
+//	INDICATOR_RESTRICTED_OFF();	\
+//	INDICATOR_SAFE_ON()
+//
+//#define RESTRICTED_MODE()		\
+//	INDICATOR_BASIC_OFF();		\
+//	INDICATOR_RESTRICTED_ON();	\
+//	INDICATOR_SAFE_OFF()
+
+

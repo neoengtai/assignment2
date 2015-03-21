@@ -41,3 +41,7 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+*.cproject
+.project
+Debug/
+EE2024_Assignment2 Debug.launch
