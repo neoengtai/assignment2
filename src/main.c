@@ -2,34 +2,99 @@
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_ssp.h"
-
+#include "main.h"
 #include "led7seg.h"
 
-typedef enum {BASIC, RESTRICTED} OPERATING_MODE;
+typedef enum {
+	BASIC, RESTRICTED
+} OPERATING_MODE;
 
 volatile uint32_t msTicks = 0;
 volatile uint8_t led7SegFlag = 0;
+volatile uint8_t sampleFlag = 0;
+volatile uint32_t lightVal = 0;
+volatile uint32_t accVal_X = 0;
+volatile uint32_t accVal_Y = 0;
+volatile uint32_t accVal_Z = 0;
+volatile uint32_t tempVal = 0;
 
-void SysTick_Handler(void){
-	static int count = 0;
+OPERATING_MODE currentMode = BASIC; //Start in basic mode
 
+void SysTick_Handler(void) {
 	msTicks++;
-	count++;
 
 	// Set led7Flag every second
-	if (count > 999){
+	if ((msTicks % 1000) == 0) {
 		led7SegFlag = 1;
-		count = 0;
+	}
+	// Set sample flag every SAMPLING_TIME
+	if ((msTicks % SAMPLING_TIME) == 0) {
+		sampleFlag = 1;
 	}
 }
 
-void updateLed7Seg(void){
-	int num = (msTicks/1000) % 10;
-	char numChar = (char)((int)'0' + num); //convert int to char
+/***************	Misc functions	********************/
+void switchMode(void) {
+
+}
+
+void transmit(char* str) {
+
+}
+
+/***************	Peripheral tasks	******************/
+void led7SegTask(void) {
+	int num = (msTicks / 1000) % 10;
+	char numChar = (char) ((int) '0' + num); //convert int to char
 	led7seg_setChar(numChar, 0);
 }
 
-void init_spi(void){
+void accelerometerTask(void) {
+	switch (currentMode) {
+	case BASIC:
+
+		break;
+	case RESTRICTED:
+
+		break;
+	}
+}
+
+void lightSensorTask(void) {
+	switch (currentMode) {
+	case BASIC:
+
+		break;
+	case RESTRICTED:
+
+		break;
+	}
+}
+
+void tempSensorTask(void) {
+	switch (currentMode) {
+	case BASIC:
+
+		break;
+	case RESTRICTED:
+
+		break;
+	}
+}
+
+void oledTask(void) {
+	switch (currentMode) {
+	case BASIC:
+
+		break;
+	case RESTRICTED:
+
+		break;
+	}
+}
+
+/***************	Init functions	********************/
+void init_spi(void) {
 	SSP_CFG_Type SSP_ConfigStruct;
 	PINSEL_CFG_Type PinCfg;
 
@@ -57,24 +122,25 @@ void init_spi(void){
 	SSP_Cmd(LPC_SSP1, ENABLE);
 }
 
-int main (void){
-	OPERATING_MODE currentMode = BASIC;
-
-
-	if (SysTick_Config (SystemCoreClock / 1000)) {
-	    while (1);
+int main(void) {
+	if (SysTick_Config(SystemCoreClock / 1000)) {
+		while (1)
+			;
 	}
 
 	init_spi();
 	led7seg_init();
 
-
-	while (1){
-		// 7 segment counting in all modes
-		if (led7SegFlag){
-			updateLed7Seg();
+	while (1) {
+		if (led7SegFlag) {
+			led7SegTask();
 			led7SegFlag = 0;
 		}
 
+		if (sampleFlag) {
+			accelerometerTask();
+			lightSensorTask();
+			sampleFlag = 0;
+		}
 	}
 }
