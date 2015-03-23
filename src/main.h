@@ -11,6 +11,8 @@
 #define INDICATOR_SAFE_ON() //TODO: led lights
 #define INDICATOR_SAFE_OFF()
 
+#define OLED_CHAR_WIDTH 6
+#define OLED_CHAR_HEIGHT 8
 //#define BASIC_MODE()			\
 //	INDICATOR_BASIC_ON();		\
 //	INDICATOR_RESTRICTED_OFF();	\

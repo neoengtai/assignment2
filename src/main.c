@@ -4,6 +4,9 @@
 #include "lpc17xx_ssp.h"
 #include "main.h"
 #include "led7seg.h"
+#include "oled.h"
+
+#include "stdio.h"
 
 typedef enum {
 	BASIC, RESTRICTED
@@ -83,14 +86,29 @@ void tempSensorTask(void) {
 }
 
 void oledTask(void) {
+	// 5 rows of data, each row max of OLED_DISPLAY_WIDTH/6 (char width is 6 px in this case)
+	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = { "L :R", "T :R",
+			"AX:R", "AY:R", "AZ:R" };
+
 	switch (currentMode) {
 	case BASIC:
-
+		sprintf(&data[0][3], "%lu", lightVal);
+		sprintf(&data[1][3], "%lu", tempVal);
+		sprintf(&data[2][3], "%lu", accVal_X);
+		sprintf(&data[3][3], "%lu", accVal_Y);
+		sprintf(&data[4][3], "%lu", accVal_Z);
 		break;
 	case RESTRICTED:
-
+		//Do nothing, since R is the initialized value
 		break;
 	}
+
+	int i;
+	for (i = 0; i < 5; i++) {
+		oled_putString(0, i * OLED_CHAR_HEIGHT, (uint8_t *) data[i],
+				OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+	}
+
 }
 
 /***************	Init functions	********************/
@@ -129,7 +147,11 @@ int main(void) {
 	}
 
 	init_spi();
+
+	oled_init();
 	led7seg_init();
+
+	oled_clearScreen(OLED_COLOR_BLACK);
 
 	while (1) {
 		if (led7SegFlag) {
@@ -140,6 +162,7 @@ int main(void) {
 		if (sampleFlag) {
 			accelerometerTask();
 			lightSensorTask();
+			oledTask();
 			sampleFlag = 0;
 		}
 	}
