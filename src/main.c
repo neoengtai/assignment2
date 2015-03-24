@@ -1,11 +1,12 @@
 #include "LPC17xx.h"
 #include "lpc17xx_gpio.h"
+#include "lpc17xx_i2c.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_ssp.h"
 #include "main.h"
 #include "led7seg.h"
 #include "oled.h"
-//Test commit by weikang
+#include "light.h"
 
 #include "stdio.h"
 
@@ -67,7 +68,7 @@ void accelerometerTask(void) {
 void lightSensorTask(void) {
 	switch (currentMode) {
 	case BASIC:
-
+		lightVal = light_read();
 		break;
 	case RESTRICTED:
 
@@ -141,6 +142,25 @@ void init_spi(void) {
 	SSP_Cmd(LPC_SSP1, ENABLE);
 }
 
+static void i2c_init(void)
+{
+    PINSEL_CFG_Type PinCfg;
+
+    /* Initialize I2C2 pin connect */
+    PinCfg.Funcnum = 2;
+    PinCfg.Pinnum = 10;
+    PinCfg.Portnum = 0;
+    PINSEL_ConfigPin(&PinCfg);
+    PinCfg.Pinnum = 11;
+    PINSEL_ConfigPin(&PinCfg);
+
+    // Initialize I2C peripheral
+    I2C_Init(LPC_I2C2, 100000);
+
+    /* Enable I2C1 operation */
+    I2C_Cmd(LPC_I2C2, ENABLE);
+}
+
 int main(void) {
 	if (SysTick_Config(SystemCoreClock / 1000)) {
 		while (1)
@@ -148,9 +168,12 @@ int main(void) {
 	}
 
 	init_spi();
+	i2c_init();
 
 	oled_init();
 	led7seg_init();
+	light_init();
+	light_enable();
 
 	oled_clearScreen(OLED_COLOR_BLACK);
 
