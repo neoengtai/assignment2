@@ -5,8 +5,8 @@
 #define INDICATOR_BASIC_ON() GPIO_SetValue(0, 1<<26)	//Blue led
 #define INDICATOR_BASIC_OFF() GPIO_ClearValue(0, 1<<26)
 
-#define INDICATOR_RESTRICTED_ON() GPIO_SetValue(2, 0)		//Red led
-#define INDICATOR_RESTRICTED_OFF() GPIO_ClearValue(2, 0)
+#define INDICATOR_RESTRICTED_ON() GPIO_SetValue(2, 1)		//Red led
+#define INDICATOR_RESTRICTED_OFF() GPIO_ClearValue(2, 1)
 
 #define INDICATOR_SAFE_ON() //TODO: led lights
 #define INDICATOR_SAFE_OFF()
