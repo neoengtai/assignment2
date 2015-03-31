@@ -10,6 +10,7 @@
 #include "acc.h"
 #include "temp.h"
 #include "rgb.h"
+#include "pca9532.h"
 
 #include "stdio.h"
 
@@ -25,9 +26,18 @@ volatile uint8_t accVal_X = 0;
 volatile uint8_t accVal_Y = 0;
 volatile uint8_t accVal_Z = 0;
 volatile uint32_t tempVal = 0;
+volatile uint32_t flare_flag = 0;
 
 void SysTick_Handler(void) {
 	msTicks++;
+}
+void EINT3_IRQHandler(void) {
+// Determine whether GPIO Interrupt P2.5 has occurred
+	if ((LPC_GPIOINT ->IO2IntStatF >> 5) & 0x1) {
+		flare_flag = 1;
+		light_clearIrqStatus();
+		LPC_GPIOINT ->IO2IntClr = 1 << 5;
+	}
 }
 
 /***************	Misc functions	********************/
@@ -38,12 +48,16 @@ void switchMode(void) {
 		INDICATOR_BASIC_OFF();
 		INDICATOR_RESTRICTED_ON();
 
-		oledTask();
+		pca9532_setLeds(0, -1);
+
+		oledUpdate();
 
 	} else {
 		currentMode = BASIC;
 		INDICATOR_BASIC_ON();
 		INDICATOR_RESTRICTED_OFF();
+
+		pca9532_setLeds(-1, 0);
 	}
 
 }
@@ -57,55 +71,25 @@ uint32_t getMsTicks(void) {
 }
 
 /***************	Peripheral tasks	******************/
-void led7SegTask(void) {
+void led7SegUpdate(void) {
 	int num = (msTicks / 1000) % 10;
 	char numChar = (char) ((int) '0' + num); //convert int to char
 	led7seg_setChar(numChar, 0);
 }
 
-void accelerometerTask(void) {
-	switch (currentMode) {
-	case BASIC:
-		acc_read(&accVal_X, &accVal_Y, &accVal_Z);
-
-		break;
-	case RESTRICTED:
-
-		break;
-	}
+void sample_accelerometer(void) {
+	acc_read(&accVal_X, &accVal_Y, &accVal_Z);
 }
 
-void lightSensorTask(void) {
+void sample_light(void) {
 	lightVal = light_read();
-	switch (currentMode) {
-	case BASIC:
-		if (lightVal > FLARE_INTENSITY) {
-			switchMode();
-		}
-
-		break;
-	case RESTRICTED:
-		if (lightVal <= FLARE_INTENSITY) {
-			switchMode();
-		}
-
-		break;
-	}
 }
 
-void tempSensorTask(void) {
-	switch (currentMode) {
-	case BASIC:
-		tempVal = temp_read();
-
-		break;
-	case RESTRICTED:
-
-		break;
-	}
+void sample_temp(void) {
+	tempVal = temp_read();
 }
 
-void oledTask(void) {
+void oledUpdate(void) {
 	// 5 rows of data, each row max of OLED_DISPLAY_WIDTH/6 (char width is 6 px in this case)
 	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = { "L :R", "T :R",
 			"AX:R", "AY:R", "AZ:R" };
@@ -128,6 +112,10 @@ void oledTask(void) {
 		oled_putString(0, i * OLED_CHAR_HEIGHT, (uint8_t *) data[i],
 				OLED_COLOR_WHITE, OLED_COLOR_BLACK);
 	}
+
+}
+
+void led16Task(void) {
 
 }
 
@@ -189,6 +177,22 @@ static void init_GPIO(void) {
 	PINSEL_ConfigPin(&PinCfg);
 	GPIO_SetDir(0, 1 << 2, 0);
 
+	// For GPIO interrupt
+	PinCfg.Portnum = 2;
+	PinCfg.Pinnum = 5;
+	PINSEL_ConfigPin(&PinCfg);
+	GPIO_SetDir(2, 1 << 5, 0);
+}
+
+void STAR_T_init(void) {
+	currentMode = BASIC; //Start in basic mode
+
+	INDICATOR_BASIC_ON();
+	INDICATOR_RESTRICTED_OFF();
+
+	pca9532_setLeds(-1, 0);
+
+	oled_clearScreen(OLED_COLOR_BLACK);
 }
 
 int main(void) {
@@ -199,6 +203,8 @@ int main(void) {
 
 	int led7segTimer = 0;
 	int sampleTimer = 0;
+	int led16Timer;
+	uint16_t led16state;
 
 	init_spi();
 	i2c_init();
@@ -207,31 +213,59 @@ int main(void) {
 	oled_init();
 	led7seg_init();
 	acc_init();
-	light_init();
-	rgb_init();
-	temp_init(getMsTicks);
+	light_setHiThreshold(FLARE_INTENSITY);
 	light_enable();
 	light_setRange(LIGHT_RANGE_4000);
+	rgb_init();
+	temp_init(getMsTicks);
 
-	oled_clearScreen(OLED_COLOR_BLACK);
+	LPC_GPIOINT ->IO2IntEnF |= 1 << 5;
+	NVIC_EnableIRQ(EINT3_IRQn);
 
-	currentMode = BASIC; //Start in basic mode
-
-	INDICATOR_BASIC_ON();
-	INDICATOR_RESTRICTED_OFF();
+	STAR_T_init();
 
 	while (1) {
-		if (msTicks >= led7segTimer+1000) {
+		if (msTicks >= led7segTimer + 1000) {
 			led7segTimer = msTicks;
-			led7SegTask();
+			led7SegUpdate();
 		}
 
-		if (msTicks >= sampleTimer + SAMPLING_TIME) {
-			sampleTimer = msTicks;
-			accelerometerTask();
-			lightSensorTask();
-			tempSensorTask();
-			oledTask();
+		switch (currentMode) {
+		case BASIC:
+			if (flare_flag) {
+				switchMode();
+				led16Timer = msTicks;
+				led16state = 0;
+				flare_flag = 0;
+				break;
+			}
+
+			if (msTicks >= sampleTimer + SAMPLING_TIME) {
+				sampleTimer = msTicks;
+				sample_accelerometer();
+				sample_light();
+				sample_temp();
+				oledUpdate();
+			}
+			break;
+		case RESTRICTED:
+			if (flare_flag) {
+				led16Timer = msTicks;
+				led16state = 0;
+				pca9532_setLeds(0, -1);
+				flare_flag = 0;
+			}
+			if ((msTicks >= led16Timer + TIME_UNIT)
+					&& (light_read() < FLARE_INTENSITY)) {
+				led16Timer = msTicks;
+				led16state = led16state * 2;
+				pca9532_setLeds(led16state, 0);
+				if (led16state == -1) {
+					switchMode();
+				}
+			}
+			break;
 		}
+
 	}
 }
