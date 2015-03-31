@@ -17,36 +17,29 @@ typedef enum {
 	BASIC, RESTRICTED
 } OPERATING_MODE;
 
+OPERATING_MODE currentMode;
+
 volatile uint32_t msTicks = 0;
-volatile uint8_t led7SegFlag = 0;
-volatile uint8_t sampleFlag = 0;
 volatile uint32_t lightVal = 0;
 volatile uint8_t accVal_X = 0;
 volatile uint8_t accVal_Y = 0;
 volatile uint8_t accVal_Z = 0;
 volatile uint32_t tempVal = 0;
 
-OPERATING_MODE currentMode = BASIC; //Start in basic mode
-
 void SysTick_Handler(void) {
 	msTicks++;
-
-	// Set led7Flag every second
-	if ((msTicks % 1000) == 0) {
-		led7SegFlag = 1;
-	}
-	// Set sample flag every SAMPLING_TIME
-	if ((msTicks % SAMPLING_TIME) == 0) {
-		sampleFlag = 1;
-	}
 }
 
 /***************	Misc functions	********************/
 void switchMode(void) {
 	if (currentMode == BASIC) {
 		currentMode = RESTRICTED;
+
 		INDICATOR_BASIC_OFF();
 		INDICATOR_RESTRICTED_ON();
+
+		oledTask();
+
 	} else {
 		currentMode = BASIC;
 		INDICATOR_BASIC_ON();
@@ -204,6 +197,9 @@ int main(void) {
 			;
 	}
 
+	int led7segTimer = 0;
+	int sampleTimer = 0;
+
 	init_spi();
 	i2c_init();
 	init_GPIO();
@@ -219,21 +215,23 @@ int main(void) {
 
 	oled_clearScreen(OLED_COLOR_BLACK);
 
+	currentMode = BASIC; //Start in basic mode
+
 	INDICATOR_BASIC_ON();
 	INDICATOR_RESTRICTED_OFF();
 
 	while (1) {
-		if (led7SegFlag) {
+		if (msTicks >= led7segTimer+1000) {
+			led7segTimer = msTicks;
 			led7SegTask();
-			led7SegFlag = 0;
 		}
 
-		if (sampleFlag) {
+		if (msTicks >= sampleTimer + SAMPLING_TIME) {
+			sampleTimer = msTicks;
 			accelerometerTask();
 			lightSensorTask();
 			tempSensorTask();
 			oledTask();
-			sampleFlag = 0;
 		}
 	}
 }
