@@ -255,12 +255,11 @@ int main(void) {
 				pca9532_setLeds(0, -1);
 				flare_flag = 0;
 			}
-			if ((msTicks >= led16Timer + TIME_UNIT)
-					&& (light_read() < FLARE_INTENSITY)) {
+			if ((msTicks >= led16Timer + TIME_UNIT)) {
 				led16Timer = msTicks;
-				led16state = led16state * 2;
+				led16state = (led16state<<1) | 1;
 				pca9532_setLeds(led16state, 0);
-				if (led16state == -1) {
+				if (led16state == ((uint16_t)-1)) {
 					switchMode();
 				}
 			}
