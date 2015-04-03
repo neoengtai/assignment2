@@ -9,7 +9,6 @@
 #include "light.h"
 #include "acc.h"
 #include "temp.h"
-#include "rgb.h"
 #include "pca9532.h"
 
 #include "stdio.h"
@@ -48,7 +47,7 @@ void switchMode(void) {
 		INDICATOR_BASIC_OFF();
 		INDICATOR_RESTRICTED_ON();
 
-		pca9532_setLeds(0, -1);
+		INDICATOR_SAFE_OFF();
 
 		oledUpdate();
 
@@ -57,7 +56,7 @@ void switchMode(void) {
 		INDICATOR_BASIC_ON();
 		INDICATOR_RESTRICTED_OFF();
 
-		pca9532_setLeds(-1, 0);
+		INDICATOR_SAFE_ON();
 	}
 
 }
@@ -184,13 +183,20 @@ static void init_GPIO(void) {
 	GPIO_SetDir(2, 1 << 5, 0);
 }
 
+void rgb_init (void)
+{
+    GPIO_SetDir( 0, (1<<26), 1 );
+    GPIO_SetDir( 2, (1<<1), 1 );
+
+}
+
 void STAR_T_init(void) {
 	currentMode = BASIC; //Start in basic mode
 
 	INDICATOR_BASIC_ON();
 	INDICATOR_RESTRICTED_OFF();
 
-	pca9532_setLeds(-1, 0);
+	INDICATOR_SAFE_ON();
 
 	oled_clearScreen(OLED_COLOR_BLACK);
 }
@@ -252,7 +258,7 @@ int main(void) {
 			if (flare_flag) {
 				led16Timer = msTicks;
 				led16state = 0;
-				pca9532_setLeds(0, -1);
+				INDICATOR_SAFE_OFF();
 				flare_flag = 0;
 			}
 			if ((msTicks >= led16Timer + TIME_UNIT)) {

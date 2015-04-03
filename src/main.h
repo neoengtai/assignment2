@@ -8,20 +8,11 @@
 #define INDICATOR_RESTRICTED_ON() GPIO_SetValue(2, 1)		//Red led
 #define INDICATOR_RESTRICTED_OFF() GPIO_ClearValue(2, 1)
 
-#define INDICATOR_SAFE_ON() //TODO: led lights
-#define INDICATOR_SAFE_OFF()
+#define INDICATOR_SAFE_ON() pca9532_setLeds(-1, 0)
+#define INDICATOR_SAFE_OFF() pca9532_setLeds(0, -1)
 
 #define OLED_CHAR_WIDTH 6
 #define OLED_CHAR_HEIGHT 8
-//#define BASIC_MODE()			\
-//	INDICATOR_BASIC_ON();		\
-//	INDICATOR_RESTRICTED_OFF();	\
-//	INDICATOR_SAFE_ON()
-//
-//#define RESTRICTED_MODE()		\
-//	INDICATOR_BASIC_OFF();		\
-//	INDICATOR_RESTRICTED_ON();	\
-//	INDICATOR_SAFE_OFF()
 
 void accelerometerTask(void);
 uint32_t getMsTicks(void);
