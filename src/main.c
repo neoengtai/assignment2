@@ -3,6 +3,7 @@
 #include "lpc17xx_i2c.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_ssp.h"
+#include "lpc17xx_uart.h"
 #include "main.h"
 #include "led7seg.h"
 #include "oled.h"
@@ -37,6 +38,14 @@ void EINT3_IRQHandler(void) {
 		light_clearIrqStatus();
 		LPC_GPIOINT ->IO2IntClr = 1 << 5;
 	}
+	if ((LPC_GPIOINT ->IO2IntStatF >> 10) & 0x1) {
+		sample_accelerometer();
+		sample_light();
+		sample_temp();
+		oledUpdate();
+		transmitData();
+		LPC_GPIOINT ->IO2IntClr = 1 << 10;
+	}
 }
 
 /***************	Misc functions	********************/
@@ -61,8 +70,10 @@ void switchMode(void) {
 
 }
 
-void transmit(char* str) {
-
+void transmitData(void) {
+	uint8_t buf[32] = "";
+	sprintf(buf, "L%u_T%.1f_AX%u_AY%u_AZ%u\n", lightVal, tempVal, accVal_X, accVal_Y, accVal_Z);
+	UART_SendString(LPC_UART3, buf);
 }
 
 uint32_t getMsTicks(void) {
@@ -176,17 +187,47 @@ static void init_GPIO(void) {
 	PINSEL_ConfigPin(&PinCfg);
 	GPIO_SetDir(0, 1 << 2, 0);
 
-	// For GPIO interrupt
+	// For GPIO interrupt (light sensor)
 	PinCfg.Portnum = 2;
 	PinCfg.Pinnum = 5;
 	PINSEL_ConfigPin(&PinCfg);
 	GPIO_SetDir(2, 1 << 5, 0);
+
+	// For GPIO interrupt (SW3)
+	PinCfg.Portnum = 2;
+	PinCfg.Pinnum = 10;
+	PINSEL_ConfigPin(&PinCfg);
+	GPIO_SetDir(2, 1 << 10, 0);
+
 }
 
-void rgb_init (void)
-{
-    GPIO_SetDir( 0, (1<<26), 1 );
-    GPIO_SetDir( 2, (1<<1), 1 );
+void init_UART(void) {
+	PINSEL_CFG_Type PinCfg;
+	PinCfg.Funcnum = 2;
+	PinCfg.OpenDrain = 0;
+	PinCfg.Pinmode = 0;
+	PinCfg.Portnum = 0;
+	PinCfg.Pinnum = 0;
+	PINSEL_ConfigPin(&PinCfg);
+
+	PinCfg.Pinnum = 1;
+	PINSEL_ConfigPin(&PinCfg);
+
+	UART_CFG_Type uartCfg;
+	uartCfg.Baud_rate = 115200;
+	uartCfg.Databits = UART_DATABIT_8;
+	uartCfg.Parity = UART_PARITY_NONE;
+	uartCfg.Stopbits = UART_STOPBIT_1;
+
+	//supply power & setup working par.s for uart3
+	UART_Init(LPC_UART3, &uartCfg);
+	//enable transmit for uart3
+	UART_TxCmd(LPC_UART3, ENABLE);
+}
+
+void rgb_init(void) {
+	GPIO_SetDir(2, 1, 1);
+	GPIO_SetDir(0, (1 << 26), 1);
 
 }
 
@@ -215,6 +256,7 @@ int main(void) {
 	init_spi();
 	i2c_init();
 	init_GPIO();
+	init_UART();
 
 	oled_init();
 	led7seg_init();
@@ -226,6 +268,7 @@ int main(void) {
 	temp_init(getMsTicks);
 
 	LPC_GPIOINT ->IO2IntEnF |= 1 << 5;
+	LPC_GPIOINT ->IO2IntEnF |= 1 << 10;
 	NVIC_EnableIRQ(EINT3_IRQn);
 
 	STAR_T_init();
@@ -263,9 +306,9 @@ int main(void) {
 			}
 			if ((msTicks >= led16Timer + TIME_UNIT)) {
 				led16Timer = msTicks;
-				led16state = (led16state<<1) | 1;
+				led16state = (led16state << 1) | 1;
 				pca9532_setLeds(led16state, 0);
-				if (led16state == ((uint16_t)-1)) {
+				if (led16state == ((uint16_t) -1)) {
 					switchMode();
 				}
 			}

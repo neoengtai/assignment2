@@ -11,6 +11,9 @@
 #define INDICATOR_SAFE_ON() pca9532_setLeds(-1, 0)
 #define INDICATOR_SAFE_OFF() pca9532_setLeds(0, -1)
 
+#define MSG_NORMAL "Solar Flare Detected. Scheduled Telemetry is Temporarily Suspended.\n"
+#define MSG_FLARE "Space Weather is Back to Normal. Scheduled Telemetry Will Now Resume.\n"
+
 #define OLED_CHAR_WIDTH 6
 #define OLED_CHAR_HEIGHT 8
 
@@ -21,6 +24,6 @@ void sample_light(void);
 void oledUpdate(void);
 void switchMode(void);
 void sample_temp(void);
-void transmit(char* str);
+void transmitData(void);
 
 
