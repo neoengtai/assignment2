@@ -18,14 +18,17 @@ typedef enum {
 	BASIC, RESTRICTED
 } OPERATING_MODE;
 
+char *MSG_FLARE = "Solar Flare Detected. Scheduled Telemetry is Temporarily Suspended.\r\n";
+char *MSG_NORMAL = "Space Weather is Back to Normal. Scheduled Telemetry Will Now Resume.\r\n";
+
 OPERATING_MODE currentMode;
 
 volatile uint32_t msTicks = 0;
 volatile uint32_t lightVal = 0;
-volatile uint8_t accVal_X = 0;
-volatile uint8_t accVal_Y = 0;
-volatile uint8_t accVal_Z = 0;
-volatile uint32_t tempVal = 0;
+volatile int8_t accVal_X = 0;
+volatile int8_t accVal_Y = 0;
+volatile int8_t accVal_Z = 0;
+volatile int32_t tempVal = 0;
 volatile uint32_t flare_flag = 0;
 
 void SysTick_Handler(void) {
@@ -52,28 +55,24 @@ void EINT3_IRQHandler(void) {
 void switchMode(void) {
 	if (currentMode == BASIC) {
 		currentMode = RESTRICTED;
-
 		INDICATOR_BASIC_OFF();
 		INDICATOR_RESTRICTED_ON();
-
 		INDICATOR_SAFE_OFF();
-
 		oledUpdate();
-
+		UART_SendString(LPC_UART3, (uint8_t *)MSG_FLARE);
 	} else {
 		currentMode = BASIC;
 		INDICATOR_BASIC_ON();
 		INDICATOR_RESTRICTED_OFF();
-
 		INDICATOR_SAFE_ON();
+		UART_SendString(LPC_UART3, (uint8_t *)MSG_NORMAL);
 	}
-
 }
 
 void transmitData(void) {
-	uint8_t buf[32] = "";
-	sprintf(buf, "L%u_T%.1f_AX%u_AY%u_AZ%u\n", lightVal, tempVal, accVal_X, accVal_Y, accVal_Z);
-	UART_SendString(LPC_UART3, buf);
+	char buf[32] = "";
+	sprintf(buf, "L%lu_T%.1f_AX%d_AY%d_AZ%d\r\n", lightVal, ((float) tempVal / 10.0), accVal_X, accVal_Y, accVal_Z);
+	UART_SendString(LPC_UART3, (uint8_t *)buf);
 }
 
 uint32_t getMsTicks(void) {
@@ -108,9 +107,9 @@ void oledUpdate(void) {
 	case BASIC:
 		sprintf(&data[0][3], "%lu", lightVal);
 		sprintf(&data[1][3], "%.1f", (float) tempVal / 10.0);
-		sprintf(&data[2][3], "%u", accVal_X);
-		sprintf(&data[3][3], "%u", accVal_Y);
-		sprintf(&data[4][3], "%u", accVal_Z);
+		sprintf(&data[2][3], "%d", accVal_X);
+		sprintf(&data[3][3], "%d", accVal_Y);
+		sprintf(&data[4][3], "%d", accVal_Z);
 		break;
 	case RESTRICTED:
 		//Do nothing, since R is the initialized value
@@ -295,6 +294,7 @@ int main(void) {
 				sample_light();
 				sample_temp();
 				oledUpdate();
+				transmitData();
 			}
 			break;
 		case RESTRICTED:
