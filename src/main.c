@@ -18,8 +18,10 @@ typedef enum {
 	BASIC, RESTRICTED
 } OPERATING_MODE;
 
-char *MSG_FLARE = "Solar Flare Detected. Scheduled Telemetry is Temporarily Suspended.\r\n";
-char *MSG_NORMAL = "Space Weather is Back to Normal. Scheduled Telemetry Will Now Resume.\r\n";
+char *MSG_FLARE =
+		"Solar Flare Detected. Scheduled Telemetry is Temporarily Suspended.\r\n";
+char *MSG_NORMAL =
+		"Space Weather is Back to Normal. Scheduled Telemetry Will Now Resume.\r\n";
 
 OPERATING_MODE currentMode;
 
@@ -59,20 +61,21 @@ void switchMode(void) {
 		INDICATOR_RESTRICTED_ON();
 		INDICATOR_SAFE_OFF();
 		oledUpdate();
-		UART_SendString(LPC_UART3, (uint8_t *)MSG_FLARE);
+		UART_SendString(LPC_UART3, (uint8_t *) MSG_FLARE);
 	} else {
 		currentMode = BASIC;
 		INDICATOR_BASIC_ON();
 		INDICATOR_RESTRICTED_OFF();
 		INDICATOR_SAFE_ON();
-		UART_SendString(LPC_UART3, (uint8_t *)MSG_NORMAL);
+		UART_SendString(LPC_UART3, (uint8_t *) MSG_NORMAL);
 	}
 }
 
 void transmitData(void) {
 	char buf[32] = "";
-	sprintf(buf, "L%lu_T%.1f_AX%d_AY%d_AZ%d\r\n", lightVal, ((float) tempVal / 10.0), accVal_X, accVal_Y, accVal_Z);
-	UART_SendString(LPC_UART3, (uint8_t *)buf);
+	sprintf(buf, "L%lu_T%.1f_AX%d_AY%d_AZ%d\r\n", lightVal,
+			((float) tempVal / 10.0), accVal_X, accVal_Y, accVal_Z);
+	UART_SendString(LPC_UART3, (uint8_t *) buf);
 }
 
 uint32_t getMsTicks(void) {
@@ -81,9 +84,15 @@ uint32_t getMsTicks(void) {
 
 /***************	Peripheral tasks	******************/
 void led7SegUpdate(void) {
-	int num = (msTicks / 1000) % 10;
-	char numChar = (char) ((int) '0' + num); //convert int to char
-	led7seg_setChar(numChar, 0);
+	static int led7SegTimer = 0;
+	int num;
+
+	if (msTicks >= led7SegTimer + 1000) {
+		led7SegTimer = msTicks;
+		num = (msTicks / 1000) % 10;
+		char numChar = (char) ((int) '0' + num); //convert int to char
+		led7seg_setChar(numChar, 0);
+	}
 }
 
 void sample_accelerometer(void) {
@@ -238,6 +247,8 @@ void STAR_T_init(void) {
 
 	INDICATOR_SAFE_ON();
 
+	led7seg_setChar('0', 0);
+
 	oled_clearScreen(OLED_COLOR_BLACK);
 }
 
@@ -247,7 +258,6 @@ int main(void) {
 			;
 	}
 
-	int led7segTimer = 0;
 	int sampleTimer = 0;
 	int led16Timer;
 	uint16_t led16state;
@@ -268,15 +278,13 @@ int main(void) {
 
 	LPC_GPIOINT ->IO2IntEnF |= 1 << 5;
 	LPC_GPIOINT ->IO2IntEnF |= 1 << 10;
+	NVIC_SetPriority(EINT3_IRQn, 100);
 	NVIC_EnableIRQ(EINT3_IRQn);
 
 	STAR_T_init();
 
 	while (1) {
-		if (msTicks >= led7segTimer + 1000) {
-			led7segTimer = msTicks;
-			led7SegUpdate();
-		}
+		led7SegUpdate();
 
 		switch (currentMode) {
 		case BASIC:
