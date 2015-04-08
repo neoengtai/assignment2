@@ -278,7 +278,6 @@ int main(void) {
 
 	LPC_GPIOINT ->IO2IntEnF |= 1 << 5;
 	LPC_GPIOINT ->IO2IntEnF |= 1 << 10;
-	NVIC_SetPriority(EINT3_IRQn, 100);
 	NVIC_EnableIRQ(EINT3_IRQn);
 
 	STAR_T_init();
