@@ -270,9 +270,11 @@ int main(void) {
 	oled_init();
 	led7seg_init();
 	acc_init();
-	light_setHiThreshold(FLARE_INTENSITY);
 	light_enable();
 	light_setRange(LIGHT_RANGE_4000);
+	light_setLoThreshold(0);
+	light_setHiThreshold(FLARE_INTENSITY);
+	light_clearIrqStatus();
 	rgb_init();
 	temp_init(getMsTicks);
 
