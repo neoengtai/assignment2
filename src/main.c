@@ -240,16 +240,35 @@ void rgb_init(void) {
 }
 
 void STAR_T_init(void) {
-	currentMode = BASIC; //Start in basic mode
-
-	INDICATOR_BASIC_ON();
-	INDICATOR_RESTRICTED_OFF();
-
-	INDICATOR_SAFE_ON();
+	//Determine starting mode
+	if (light_read() <= FLARE_INTENSITY) {
+		currentMode = BASIC;
+	} else {
+		currentMode = RESTRICTED;
+	}
 
 	led7seg_setChar('0', 0);
-
 	oled_clearScreen(OLED_COLOR_BLACK);
+
+	switch (currentMode) {
+	case BASIC:
+		//Defaults is BASIC mode
+	default:
+		INDICATOR_BASIC_ON();
+		INDICATOR_RESTRICTED_OFF();
+
+		INDICATOR_SAFE_ON();
+		break;
+	case RESTRICTED:
+		INDICATOR_BASIC_OFF();
+		INDICATOR_RESTRICTED_ON();
+
+		INDICATOR_SAFE_OFF();
+
+		oledUpdate();
+		break;
+	}
+
 }
 
 int main(void) {
