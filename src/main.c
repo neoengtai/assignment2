@@ -252,7 +252,7 @@ void STAR_T_init(void) {
 
 	switch (currentMode) {
 	case BASIC:
-		//Defaults is BASIC mode
+		//Default is BASIC mode
 	default:
 		INDICATOR_BASIC_ON();
 		INDICATOR_RESTRICTED_OFF();
@@ -271,15 +271,50 @@ void STAR_T_init(void) {
 
 }
 
+//Routines
+void routine_BASIC(void) {
+	static int sampleTimer = 0;
+
+	if (flare_flag) {
+		switchMode();
+		return;
+	}
+
+	if (msTicks >= sampleTimer + SAMPLING_TIME) {
+		sampleTimer = msTicks;
+		sample_accelerometer();
+		sample_light();
+		sample_temp();
+		oledUpdate();
+		transmitData();
+	}
+}
+
+void routine_RESTRICTED(void) {
+	static int led16Timer;
+	static uint16_t led16state;
+
+	if (flare_flag) {
+		led16Timer = msTicks;
+		led16state = 0;
+		INDICATOR_SAFE_OFF();
+		flare_flag = 0;
+	}
+	if ((msTicks >= led16Timer + TIME_UNIT)) {
+		led16Timer = msTicks;
+		led16state = (led16state << 1) | 1;
+		pca9532_setLeds(led16state, 0);
+		if (led16state == ((uint16_t) -1)) {
+			switchMode();
+		}
+	}
+}
+
 int main(void) {
 	if (SysTick_Config(SystemCoreClock / 1000)) {
 		while (1)
 			;
 	}
-
-	int sampleTimer = 0;
-	int led16Timer;
-	uint16_t led16state;
 
 	init_spi();
 	i2c_init();
@@ -308,38 +343,10 @@ int main(void) {
 
 		switch (currentMode) {
 		case BASIC:
-			if (flare_flag) {
-				switchMode();
-				led16Timer = msTicks;
-				led16state = 0;
-				flare_flag = 0;
-				break;
-			}
-
-			if (msTicks >= sampleTimer + SAMPLING_TIME) {
-				sampleTimer = msTicks;
-				sample_accelerometer();
-				sample_light();
-				sample_temp();
-				oledUpdate();
-				transmitData();
-			}
+			routine_BASIC();
 			break;
 		case RESTRICTED:
-			if (flare_flag) {
-				led16Timer = msTicks;
-				led16state = 0;
-				INDICATOR_SAFE_OFF();
-				flare_flag = 0;
-			}
-			if ((msTicks >= led16Timer + TIME_UNIT)) {
-				led16Timer = msTicks;
-				led16state = (led16state << 1) | 1;
-				pca9532_setLeds(led16state, 0);
-				if (led16state == ((uint16_t) -1)) {
-					switchMode();
-				}
-			}
+			routine_RESTRICTED();
 			break;
 		}
 
