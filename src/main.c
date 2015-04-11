@@ -32,6 +32,7 @@ volatile int8_t accVal_Y = 0;
 volatile int8_t accVal_Z = 0;
 volatile int32_t tempVal = 0;
 volatile uint32_t flare_flag = 0;
+volatile uint32_t sw3_flag = 0;
 
 void SysTick_Handler(void) {
 	msTicks++;
@@ -44,11 +45,7 @@ void EINT3_IRQHandler(void) {
 		LPC_GPIOINT ->IO2IntClr = 1 << 5;
 	}
 	if ((LPC_GPIOINT ->IO2IntStatF >> 10) & 0x1) {
-		sample_accelerometer();
-		sample_light();
-		sample_temp();
-		oledUpdate();
-		transmitData();
+		sw3_flag = 1;
 		LPC_GPIOINT ->IO2IntClr = 1 << 10;
 	}
 }
@@ -291,23 +288,29 @@ void routine_BASIC(void) {
 }
 
 void routine_RESTRICTED(void) {
-	static int led16Timer;
-	static uint16_t led16state;
+	static uint32_t startTime, count;
 
 	if (flare_flag) {
-		led16Timer = msTicks;
-		led16state = 0;
+		startTime = msTicks;
+		count = 0;
 		INDICATOR_SAFE_OFF();
 		flare_flag = 0;
 	}
-	if ((msTicks >= led16Timer + TIME_UNIT)) {
-		led16Timer = msTicks;
-		led16state = (led16state << 1) | 1;
-		pca9532_setLeds(led16state, 0);
-		if (led16state == ((uint16_t) -1)) {
+	if ((msTicks >= startTime + TIME_UNIT * (count + 1))) {
+		count = (msTicks - startTime) / TIME_UNIT;
+		pca9532_setLeds(((1 << count) - 1), 0);
+		if (count >= 16) {
 			switchMode();
 		}
 	}
+}
+
+void routine_SW3(void) {
+	sample_accelerometer();
+	sample_light();
+	sample_temp();
+	oledUpdate();
+	transmitData();
 }
 
 int main(void) {
@@ -349,6 +352,9 @@ int main(void) {
 			routine_RESTRICTED();
 			break;
 		}
-
+		if (sw3_flag) {
+			routine_SW3();
+			sw3_flag = 0;
+		}
 	}
 }
