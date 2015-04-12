@@ -57,7 +57,7 @@ void switchMode(void) {
 		INDICATOR_BASIC_OFF();
 		INDICATOR_RESTRICTED_ON();
 		INDICATOR_SAFE_OFF();
-		oledUpdate();
+		oledUpdate(0);
 		UART_SendString(LPC_UART3, (uint8_t *) MSG_FLARE);
 	} else {
 		currentMode = BASIC;
@@ -104,30 +104,29 @@ void sample_temp(void) {
 	tempVal = temp_read();
 }
 
+/******************************************************************************
+ *
+ * Description:
+ *    Update OLED with either sampled values or 'R'
+ *
+ * Params:
+ *   [in] displayMode - 1 prints sampled values
+ *   					0 prints 'R'
+ *
+ *****************************************************************************/
 void oledUpdate(int displayMode) {
 	// 5 rows of data, each row max of OLED_DISPLAY_WIDTH/6 (char width is 6 px in this case)
 	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = { "L :R", "T :R",
 			"AX:R", "AY:R", "AZ:R" };
 
-	switch (currentMode) {
-	case BASIC:
+	if (displayMode) {
 		sprintf(&data[0][3], "%lu", lightVal);
 		sprintf(&data[1][3], "%.1f", (float) tempVal / 10.0);
 		sprintf(&data[2][3], "%d", accVal_X);
 		sprintf(&data[3][3], "%d", accVal_Y);
 		sprintf(&data[4][3], "%d", accVal_Z);
-		break;
-	case RESTRICTED:
-		//Do nothing, since R is the initialized value
-		if(displayMode) {
-			sprintf(&data[0][3], "%lu", lightVal);
-			sprintf(&data[1][3], "%.1f", (float) tempVal / 10.0);
-			sprintf(&data[2][3], "%d", accVal_X);
-			sprintf(&data[3][3], "%d", accVal_Y);
-			sprintf(&data[4][3], "%d", accVal_Z);
-		}
-		break;
 	}
+
 	oled_clearScreen(OLED_COLOR_BLACK);
 	int i;
 	for (i = 0; i < 5; i++) {
@@ -269,7 +268,7 @@ void STAR_T_init(void) {
 
 		INDICATOR_SAFE_OFF();
 
-		oledUpdate();
+		oledUpdate(0);
 		break;
 	}
 
@@ -289,7 +288,7 @@ void routine_BASIC(void) {
 		sample_accelerometer();
 		sample_light();
 		sample_temp();
-		oledUpdate(0);
+		oledUpdate(1);
 		transmitData();
 	}
 }

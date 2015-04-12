@@ -18,7 +18,7 @@ void sample_accelerometer(void);
 uint32_t getMsTicks(void);
 void led7SegUpdate(void);
 void sample_light(void);
-void oledUpdate(void);
+void oledUpdate(int);
 void switchMode(void);
 void sample_temp(void);
 void transmitData(void);
