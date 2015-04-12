@@ -104,7 +104,7 @@ void sample_temp(void) {
 	tempVal = temp_read();
 }
 
-void oledUpdate(void) {
+void oledUpdate(int displayMode) {
 	// 5 rows of data, each row max of OLED_DISPLAY_WIDTH/6 (char width is 6 px in this case)
 	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = { "L :R", "T :R",
 			"AX:R", "AY:R", "AZ:R" };
@@ -119,6 +119,13 @@ void oledUpdate(void) {
 		break;
 	case RESTRICTED:
 		//Do nothing, since R is the initialized value
+		if(displayMode) {
+			sprintf(&data[0][3], "%lu", lightVal);
+			sprintf(&data[1][3], "%.1f", (float) tempVal / 10.0);
+			sprintf(&data[2][3], "%d", accVal_X);
+			sprintf(&data[3][3], "%d", accVal_Y);
+			sprintf(&data[4][3], "%d", accVal_Z);
+		}
 		break;
 	}
 	oled_clearScreen(OLED_COLOR_BLACK);
@@ -282,7 +289,7 @@ void routine_BASIC(void) {
 		sample_accelerometer();
 		sample_light();
 		sample_temp();
-		oledUpdate();
+		oledUpdate(0);
 		transmitData();
 	}
 }
@@ -309,7 +316,7 @@ void routine_SW3(void) {
 	sample_accelerometer();
 	sample_light();
 	sample_temp();
-	oledUpdate();
+	oledUpdate(1);
 	transmitData();
 }
 
