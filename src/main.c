@@ -115,19 +115,23 @@ void sample_temp(void) {
  *
  *****************************************************************************/
 void oledUpdate(int displayMode) {
-	// 5 rows of data, each row max of OLED_DISPLAY_WIDTH/6 (char width is 6 px in this case)
-	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = { "L :R", "T :R",
-			"AX:R", "AY:R", "AZ:R" };
+	// 5 rows of data
+	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = {"", "", "", "", ""};
 
 	if (displayMode) {
-		sprintf(&data[0][3], "%lu", lightVal);
-		sprintf(&data[1][3], "%.1f", (float) tempVal / 10.0);
-		sprintf(&data[2][3], "%d", accVal_X);
-		sprintf(&data[3][3], "%d", accVal_Y);
-		sprintf(&data[4][3], "%d", accVal_Z);
+		sprintf(&data[0][0], "L : %-4lu", lightVal);
+		sprintf(&data[1][0], "T : %-4.1f", (float) tempVal / 10.0);
+		sprintf(&data[2][0], "AX: %-4d", accVal_X);
+		sprintf(&data[3][0], "AY: %-4d", accVal_Y);
+		sprintf(&data[4][0], "AZ: %-4d", accVal_Z);
+	} else {
+		sprintf(&data[0][0], "L : %-4s", "R");
+		sprintf(&data[1][0], "T : %-4s", "R");
+		sprintf(&data[2][0], "AX: %-4s", "R");
+		sprintf(&data[3][0], "AY: %-4s", "R");
+		sprintf(&data[4][0], "AZ: %-4s", "R");
 	}
 
-	oled_clearScreen(OLED_COLOR_BLACK);
 	int i;
 	for (i = 0; i < 5; i++) {
 		oled_putString(0, i * OLED_CHAR_HEIGHT, (uint8_t *) data[i],
