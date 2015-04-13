@@ -48,10 +48,11 @@ void EINT3_IRQHandler(void) {
 		light_clearIrqStatus();
 		LPC_GPIOINT ->IO2IntClr = 1 << 5;
 	}
-	if ((LPC_GPIOINT ->IO2IntStatF >> 10) & 0x1) {
-		sw3_flag = 1;
-		LPC_GPIOINT ->IO2IntClr = 1 << 10;
-	}
+}
+
+void EINT0_IRQHandler(void) {
+	sw3_flag = 1;
+	LPC_SC ->EXTINT |= 1; //Reset EINT0
 }
 
 /***************	Misc functions	********************/
@@ -120,7 +121,7 @@ void sample_temp(void) {
  *****************************************************************************/
 void oledUpdate(int displayMode) {
 	// 5 rows of data
-	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = {"", "", "", "", ""};
+	char data[5][OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = { "", "", "", "", "" };
 
 	if (displayMode) {
 		sprintf(&data[0][0], "L : %-4lu", lightVal);
@@ -141,10 +142,6 @@ void oledUpdate(int displayMode) {
 		oled_putString(0, i * OLED_CHAR_HEIGHT, (uint8_t *) data[i],
 				OLED_COLOR_WHITE, OLED_COLOR_BLACK);
 	}
-
-}
-
-void led16Task(void) {
 
 }
 
@@ -177,7 +174,7 @@ void init_spi(void) {
 	SSP_Cmd(LPC_SSP1, ENABLE);
 }
 
-static void i2c_init(void) {
+static void init_i2c(void) {
 	PINSEL_CFG_Type PinCfg;
 
 	/* Initialize I2C2 pin connect */
@@ -212,12 +209,7 @@ static void init_GPIO(void) {
 	PINSEL_ConfigPin(&PinCfg);
 	GPIO_SetDir(2, 1 << 5, 0);
 
-	// For GPIO interrupt (SW3)
-	PinCfg.Portnum = 2;
-	PinCfg.Pinnum = 10;
-	PINSEL_ConfigPin(&PinCfg);
-	GPIO_SetDir(2, 1 << 10, 0);
-
+	LPC_GPIOINT ->IO2IntEnF |= 1 << 5;
 }
 
 void init_UART(void) {
@@ -244,10 +236,23 @@ void init_UART(void) {
 	UART_TxCmd(LPC_UART3, ENABLE);
 }
 
+void init_EINT0(void) {
+	PINSEL_CFG_Type PinCfg;
+	PinCfg.Funcnum = 1;
+	PinCfg.OpenDrain = 0;
+	PinCfg.Pinmode = 0;
+	PinCfg.Portnum = 2;
+	PinCfg.Pinnum = 10;
+	PINSEL_ConfigPin(&PinCfg);
+
+	LPC_SC ->EXTMODE |= 1; //Set EINT0 to edge sensitive
+	LPC_SC ->EXTPOLAR &= ~1; //Set EINT0 to falling edge sensitive
+	LPC_SC ->EXTINT |= 1; //Reset EINT0
+}
+
 void rgb_init(void) {
 	GPIO_SetDir(2, 1, 1);
 	GPIO_SetDir(0, (1 << 26), 1);
-
 }
 
 void STAR_T_init(void) {
@@ -334,9 +339,10 @@ int main(void) {
 	}
 
 	init_spi();
-	i2c_init();
+	init_i2c();
 	init_GPIO();
 	init_UART();
+	init_EINT0();
 
 	oled_init();
 	led7seg_init();
@@ -350,9 +356,8 @@ int main(void) {
 	rgb_init();
 	temp_init(getMsTicks);
 
-	LPC_GPIOINT ->IO2IntEnF |= 1 << 5;
-	LPC_GPIOINT ->IO2IntEnF |= 1 << 10;
 	NVIC_EnableIRQ(EINT3_IRQn);
+	NVIC_EnableIRQ(EINT0_IRQn);
 
 	STAR_T_init();
 
