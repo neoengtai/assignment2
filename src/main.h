@@ -1,4 +1,4 @@
-#define SAMPLING_TIME		3000	// milliseconds
+//#define SAMPLING_TIME		3000	// milliseconds
 #define FLARE_INTENSITY		2000	// lux
 #define TIME_UNIT			250		// milliseconds
 

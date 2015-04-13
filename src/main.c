@@ -11,6 +11,7 @@
 #include "acc.h"
 #include "temp.h"
 #include "pca9532.h"
+#include "rotary.h"
 
 #include "stdio.h"
 
@@ -25,6 +26,8 @@ char *MSG_NORMAL =
 
 OPERATING_MODE currentMode;
 
+static const int timeAdjustment = 100;
+
 volatile uint32_t msTicks = 0;
 volatile uint32_t lightVal = 0;
 volatile int8_t accVal_X = 0;
@@ -33,6 +36,7 @@ volatile int8_t accVal_Z = 0;
 volatile int32_t tempVal = 0;
 volatile uint32_t flare_flag = 0;
 volatile uint32_t sw3_flag = 0;
+volatile uint32_t SAMPLING_TIME = 3000;
 
 void SysTick_Handler(void) {
 	msTicks++;
@@ -336,6 +340,7 @@ int main(void) {
 
 	oled_init();
 	led7seg_init();
+	rotary_init();
 	acc_init();
 	light_enable();
 	light_setRange(LIGHT_RANGE_4000);
