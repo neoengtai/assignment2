@@ -12,6 +12,7 @@
 #include "temp.h"
 #include "pca9532.h"
 #include "rotary.h"
+#include "joystick.h"
 
 #include "stdio.h"
 
@@ -19,16 +20,26 @@ typedef enum {
 	BASIC, RESTRICTED
 } OPERATING_MODE;
 
+typedef enum {
+	PERIOD, FLARE
+} SETTINGS_MODE;
+
 char *MSG_FLARE =
 		"Solar Flare Detected. Scheduled Telemetry is Temporarily Suspended.\r\n";
 char *MSG_NORMAL =
 		"Space Weather is Back to Normal. Scheduled Telemetry Will Now Resume.\r\n";
 
 OPERATING_MODE currentMode;
+SETTINGS_MODE settingsInFocus;
 
-static const int timeAdjustment = 100;
+static const int adjustmentVal = 100;
 static const int samplingTimeUpperBound = 5000;
 static const int samplingTimeLowerBound = 2000;
+static const int flareLowerBound = 800;
+static const int flareUpperBound = START_T_LIGHT_RANGE;
+
+volatile uint32_t SAMPLING_TIME = 3000; // Initial value of 3000
+volatile uint32_t FLARE_INTENSITY = 2000; // Initial value of 2000
 
 volatile uint32_t msTicks = 0;
 volatile uint32_t lightVal = 0;
@@ -38,7 +49,6 @@ volatile int8_t accVal_Z = 0;
 volatile int32_t tempVal = 0;
 volatile uint32_t flare_flag = 0;
 volatile uint32_t sw3_flag = 0;
-volatile uint32_t SAMPLING_TIME = 3000; // Initial value of 3000
 
 void SysTick_Handler(void) {
 	msTicks++;
@@ -151,25 +161,88 @@ void rotary_change(void) {
 	uint8_t rotaryStatus = rotary_read();
 
 	if (rotaryStatus == ROTARY_RIGHT) {
-		if (SAMPLING_TIME > samplingTimeLowerBound) {
-			// Faster
-			SAMPLING_TIME -= timeAdjustment;
-			// Display current SAMPLING_TIME value on OLED
-
-		} else {
-			// Error, hit LowerBound (too fast)
-
+		switch (settingsInFocus) {
+		case PERIOD:
+			if (SAMPLING_TIME > samplingTimeLowerBound) {
+				// Faster
+				SAMPLING_TIME -= adjustmentVal;
+				// Display current SAMPLING_TIME value on OLED
+				settingsPaneUpdate();
+			}
+			break;
+		case FLARE:
+			if (FLARE_INTENSITY > flareLowerBound) {
+				FLARE_INTENSITY -= adjustmentVal;
+				settingsPaneUpdate();
+				light_setHiThreshold(FLARE_INTENSITY);
+			}
+			break;
 		}
 	}
 
 	if (rotaryStatus == ROTARY_LEFT) {
-		if (SAMPLING_TIME < samplingTimeUpperBound) {
-			// Slower
-			SAMPLING_TIME += timeAdjustment;
-			// Display current SAMPLING_TIME value on OLED
-		} else {
-			// Error, hit UpperBound (too slow)
+		switch (settingsInFocus) {
+		case PERIOD:
+			if (SAMPLING_TIME < samplingTimeUpperBound) {
+				// Slower
+				SAMPLING_TIME += adjustmentVal;
+				// Display current SAMPLING_TIME value on OLED
+				settingsPaneUpdate();
+			}
+			break;
+		case FLARE:
+			if (FLARE_INTENSITY < flareUpperBound) {
+				FLARE_INTENSITY += adjustmentVal;
+				settingsPaneUpdate();
+				light_setHiThreshold(FLARE_INTENSITY);
+			}
+			break;
+		}
+	}
+}
 
+void settingsPaneUpdate(void) {
+	int row = 5; //row 0-4 is used for sampled values.
+	char buf[OLED_DISPLAY_WIDTH / OLED_CHAR_WIDTH] = "";
+	oled_color_t periodFB, periodBG, flareFB, flareBG;
+
+	if (settingsInFocus == PERIOD) {
+		periodFB = OLED_COLOR_BLACK;
+		periodBG = OLED_COLOR_WHITE;
+		flareFB = OLED_COLOR_WHITE;
+		flareBG = OLED_COLOR_BLACK;
+	} else {
+		periodFB = OLED_COLOR_WHITE;
+		periodBG = OLED_COLOR_BLACK;
+		flareFB = OLED_COLOR_BLACK;
+		flareBG = OLED_COLOR_WHITE;
+	}
+
+	//cnt draw a line :(
+//	oled_line(0,row*OLED_CHAR_HEIGHT,OLED_DISPLAY_WIDTH, row*OLED_CHAR_HEIGHT, OLED_COLOR_WHITE);
+//	row++;
+
+	sprintf(buf, "PERIOD: %-4lu", SAMPLING_TIME);
+	oled_putString(0, row * OLED_CHAR_HEIGHT, (uint8_t *) buf, periodFB,
+			periodBG);
+	row++;
+	sprintf(buf, "FLARE: %-4lu", FLARE_INTENSITY);
+	oled_putString(0, row * OLED_CHAR_HEIGHT, (uint8_t *) buf, flareFB,
+			flareBG);
+}
+
+void joystick_change(void) {
+	uint8_t state = joystick_read();
+
+	if (state == JOYSTICK_UP) {
+		if (settingsInFocus == FLARE) {
+			settingsInFocus = PERIOD;
+			settingsPaneUpdate();
+		}
+	} else if (state == JOYSTICK_DOWN) {
+		if (settingsInFocus == PERIOD) {
+			settingsInFocus = FLARE;
+			settingsPaneUpdate();
 		}
 	}
 }
@@ -292,8 +365,11 @@ void STAR_T_init(void) {
 		currentMode = RESTRICTED;
 	}
 
+	settingsInFocus = PERIOD;
+
 	led7seg_setChar('0', 0);
 	oled_clearScreen(OLED_COLOR_BLACK);
+	settingsPaneUpdate();
 
 	switch (currentMode) {
 	case BASIC:
@@ -376,6 +452,7 @@ int main(void) {
 	oled_init();
 	led7seg_init();
 	rotary_init();
+	joystick_init();
 	acc_init();
 	light_enable();
 	light_setRange(LIGHT_RANGE_4000);
@@ -393,6 +470,7 @@ int main(void) {
 	while (1) {
 		led7SegUpdate();
 		rotary_change();
+		joystick_change();
 
 		switch (currentMode) {
 		case BASIC:

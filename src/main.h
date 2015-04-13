@@ -1,7 +1,5 @@
-//#define SAMPLING_TIME		3000	// milliseconds
-#define FLARE_INTENSITY		2000	// lux
+#define START_T_LIGHT_RANGE 4000	//lux
 #define TIME_UNIT			250		// milliseconds
-
 #define INDICATOR_BASIC_ON() GPIO_SetValue(0, 1<<26)	//Blue led
 #define INDICATOR_BASIC_OFF() GPIO_ClearValue(0, 1<<26)
 
@@ -22,5 +20,7 @@ void oledUpdate(int);
 void switchMode(void);
 void sample_temp(void);
 void transmitData(void);
-
+void settingsPaneUpdate(void);
+void rotary_change(void);
+void joystick_change(void);
 
