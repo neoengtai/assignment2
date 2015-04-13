@@ -27,6 +27,8 @@ char *MSG_NORMAL =
 OPERATING_MODE currentMode;
 
 static const int timeAdjustment = 100;
+static const int samplingTimeUpperBound = 5000;
+static const int samplingTimeLowerBound = 2000;
 
 volatile uint32_t msTicks = 0;
 volatile uint32_t lightVal = 0;
@@ -36,7 +38,7 @@ volatile int8_t accVal_Z = 0;
 volatile int32_t tempVal = 0;
 volatile uint32_t flare_flag = 0;
 volatile uint32_t sw3_flag = 0;
-volatile uint32_t SAMPLING_TIME = 3000;
+volatile uint32_t SAMPLING_TIME = 3000; // Initial value of 3000
 
 void SysTick_Handler(void) {
 	msTicks++;
@@ -143,6 +145,33 @@ void oledUpdate(int displayMode) {
 				OLED_COLOR_WHITE, OLED_COLOR_BLACK);
 	}
 
+}
+
+void rotary_change(void) {
+	uint8_t rotaryStatus = rotary_read();
+
+	if (rotaryStatus == ROTARY_RIGHT) {
+		if (SAMPLING_TIME > samplingTimeLowerBound) {
+			// Faster
+			SAMPLING_TIME -= timeAdjustment;
+			// Display current SAMPLING_TIME value on OLED
+
+		} else {
+			// Error, hit LowerBound (too fast)
+
+		}
+	}
+
+	if (rotaryStatus == ROTARY_LEFT) {
+		if (SAMPLING_TIME < samplingTimeUpperBound) {
+			// Slower
+			SAMPLING_TIME += timeAdjustment;
+			// Display current SAMPLING_TIME value on OLED
+		} else {
+			// Error, hit UpperBound (too slow)
+
+		}
+	}
 }
 
 /***************	Init functions	********************/
@@ -363,6 +392,7 @@ int main(void) {
 
 	while (1) {
 		led7SegUpdate();
+		rotary_change();
 
 		switch (currentMode) {
 		case BASIC:
